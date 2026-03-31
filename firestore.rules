@@ -1,0 +1,183 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+         (request.auth.token.email == "mahoranil016@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function isValidOptionalString(data, field, maxLen) {
+      return !(field in data) || data[field] == null || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'role', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'role', 'createdAt', 'displayName', 'photoURL', 'totalScore', 'testsTaken', 'isPremium', 'testsGeneratedCount']) &&
+             data.uid == request.auth.uid &&
+             data.role in ['user', 'admin'] &&
+             isValidDateString(data.createdAt) &&
+             isValidOptionalString(data, 'displayName', 100) &&
+             isValidOptionalString(data, 'photoURL', 1000) &&
+             (!('totalScore' in data) || data.totalScore is number) &&
+             (!('testsTaken' in data) || data.testsTaken is number) &&
+             (!('isPremium' in data) || data.isPremium is bool) &&
+             (!('testsGeneratedCount' in data) || data.testsGeneratedCount is number);
+    }
+
+    function isValidComment(data) {
+      return data.keys().hasAll(['userId', 'userName', 'text', 'createdAt']) &&
+             data.keys().hasOnly(['userId', 'userName', 'text', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.userName is string && data.userName.size() > 0 && data.userName.size() <= 100 &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 2000 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidMCQTest(data) {
+      return data.keys().hasAll(['uid', 'subject', 'language', 'score', 'totalQuestions', 'questionCount', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'subject', 'topic', 'language', 'score', 'totalQuestions', 'questionCount', 'questions', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() <= 100 &&
+             isValidOptionalString(data, 'topic', 500) &&
+             data.language in ['Hindi', 'English'] &&
+             data.score is number && data.score >= 0 &&
+             data.totalQuestions is number && data.totalQuestions > 0 &&
+             data.questionCount is number && data.questionCount > 0 &&
+             (!('questions' in data) || (data.questions is list && data.questions.size() <= 100)) &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidMainsEval(data) {
+      return data.keys().hasAll(['uid', 'subject', 'question', 'answer', 'marks', 'totalMarks', 'feedback', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'subject', 'question', 'answer', 'language', 'marks', 'totalMarks', 'feedback', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() <= 500 &&
+             data.question is string && data.question.size() > 0 && data.question.size() <= 20000 &&
+             data.answer is string && data.answer.size() > 0 && data.answer.size() <= 50000 &&
+             (!('language' in data) || data.language in ['Hindi', 'English']) &&
+             data.marks is number && data.marks >= 0 &&
+             data.totalMarks is number && data.totalMarks > 0 &&
+             data.feedback is string && data.feedback.size() > 0 && data.feedback.size() <= 50000 &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidContactMsg(data) {
+      return data.keys().hasAll(['name', 'email', 'message', 'createdAt']) &&
+             data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             isValidEmail(data.email) &&
+             data.message is string && data.message.size() > 0 && data.message.size() <= 5000 &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidFeedback(data) {
+      return data.keys().hasAll(['uid', 'userEmail', 'rating', 'comment', 'createdAt']) &&
+             data.keys().hasOnly(['uid', 'userEmail', 'rating', 'comment', 'createdAt']) &&
+             data.uid is string &&
+             data.userEmail is string &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() >= 0 && data.comment.size() <= 5000 &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if true; // Public for leaderboard
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                    (request.resource.data.role == resource.data.role || isAdmin()) && 
+                    (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'createdAt'])) &&
+                    (
+                      isAdmin() ||
+                      (
+                        // Normal profile update (no score change, no premium change, no test count change)
+                        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['totalScore', 'testsTaken', 'isPremium', 'testsGeneratedCount'])
+                      ) ||
+                      (
+                        // Score increment (max 250 score per test, testsTaken increments by 1)
+                        request.resource.data.testsTaken == resource.data.get('testsTaken', 0) + 1 &&
+                        request.resource.data.totalScore >= resource.data.get('totalScore', 0) &&
+                        request.resource.data.totalScore <= resource.data.get('totalScore', 0) + 250 &&
+                        request.resource.data.isPremium == resource.data.get('isPremium', false) &&
+                        request.resource.data.testsGeneratedCount == resource.data.get('testsGeneratedCount', 0)
+                      ) ||
+                      (
+                        // Test count increment (testsGeneratedCount increments by 1)
+                        request.resource.data.testsGeneratedCount == resource.data.get('testsGeneratedCount', 0) + 1 &&
+                        request.resource.data.totalScore == resource.data.get('totalScore', 0) &&
+                        request.resource.data.testsTaken == resource.data.get('testsTaken', 0) &&
+                        request.resource.data.isPremium == resource.data.get('isPremium', false)
+                      )
+                    );
+      allow delete: if isAdmin();
+    }
+
+    match /comments/{commentId} {
+      allow read: if true; // Public for Current Affairs
+      allow create: if isAuthenticated() && isValidComment(request.resource.data);
+      allow update: if false; // Comments are immutable
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId || isAdmin();
+    }
+
+    match /mcq_tests/{testId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidMCQTest(request.resource.data);
+      allow update: if false; // Results should be immutable
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /mains_evaluations/{evalId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidMainsEval(request.resource.data);
+      allow update: if false; // Evaluations should be immutable
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /contact_messages/{msgId} {
+      allow read: if isAdmin();
+      allow create: if isValidContactMsg(request.resource.data);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin();
+      allow create: if isValidFeedback(request.resource.data);
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+  }
+}

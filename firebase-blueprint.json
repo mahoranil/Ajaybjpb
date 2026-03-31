@@ -1,0 +1,118 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user profile information and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User role" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "totalScore": { "type": "integer", "description": "Total score from tests" },
+        "testsTaken": { "type": "integer", "description": "Total number of tests taken" },
+        "isPremium": { "type": "boolean" },
+        "testsGeneratedCount": { "type": "integer" }
+      },
+      "required": ["uid", "role", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "User comments and queries on current affairs.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User UID" },
+        "userName": { "type": "string", "description": "User display name" },
+        "text": { "type": "string", "description": "Comment text" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "text", "createdAt"]
+    },
+    "MCQTest": {
+      "title": "MCQ Test Result",
+      "description": "Stores the results of an AI-generated MCQ test.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User UID" },
+        "subject": { "type": "string" },
+        "topic": { "type": "string" },
+        "language": { "type": "string", "enum": ["Hindi", "English"] },
+        "questionCount": { "type": "integer" },
+        "score": { "type": "integer" },
+        "totalQuestions": { "type": "integer" },
+        "questions": { "type": "array", "description": "List of questions and user answers" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "subject", "score", "totalQuestions", "createdAt"]
+    },
+    "MainsEvaluation": {
+      "title": "Mains Answer Evaluation",
+      "description": "Stores the evaluation of a Mains answer.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User UID" },
+        "subject": { "type": "string" },
+        "question": { "type": "string" },
+        "answer": { "type": "string" },
+        "language": { "type": "string", "enum": ["Hindi", "English"] },
+        "marks": { "type": "integer" },
+        "totalMarks": { "type": "integer" },
+        "feedback": { "type": "string", "description": "Personalized feedback from AI" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "subject", "question", "answer", "marks", "totalMarks", "createdAt"]
+    },
+    "ContactMessage": {
+      "title": "Contact Message",
+      "description": "Messages sent via the contact form.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "message", "createdAt"]
+    },
+    "Feedback": {
+      "title": "User Feedback",
+      "description": "Feedback and ratings from users.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User UID" },
+        "userEmail": { "type": "string", "format": "email" },
+        "rating": { "type": "integer", "description": "Rating from 1 to 5" },
+        "comment": { "type": "string", "description": "User feedback comment" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "userEmail", "rating", "comment", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "User comments"
+    },
+    "/mcq_tests/{testId}": {
+      "schema": "MCQTest",
+      "description": "MCQ test results"
+    },
+    "/mains_evaluations/{evalId}": {
+      "schema": "MainsEvaluation",
+      "description": "Mains answer evaluations"
+    },
+    "/contact_messages/{msgId}": {
+      "schema": "ContactMessage",
+      "description": "Contact form submissions"
+    },
+    "/feedback/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "User feedback submissions"
+    }
+  }
+}

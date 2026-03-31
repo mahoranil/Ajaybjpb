@@ -1,0 +1,7 @@
+{
+  "name": "Remix: Remix: UPSC AI Prep",
+  "description": "An AI-powered preparation platform for UPSC and PCS exams featuring bilingual MCQs, Mains answer evaluation, and a personalized progress dashboard.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
